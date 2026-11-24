@@ -1,0 +1,43 @@
+name: iOS port host
+
+on:
+  push:
+    branches: [codex/ios15-port]
+  pull_request:
+    paths:
+      - 'Minecraft.Client/iOS/**'
+      - '.github/workflows/ios-port.yml'
+
+jobs:
+  build-ios-host:
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk: [iphoneos, iphonesimulator]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 16.4
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+      - name: Configure
+        run: >-
+          cmake -S Minecraft.Client/iOS -B build-ios-${{ matrix.sdk }}
+          -G Xcode
+          -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }}
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
+          -DCMAKE_OSX_ARCHITECTURES=arm64
+      - name: Build unsigned arm64 application host
+        run: >-
+          cmake --build build-ios-${{ matrix.sdk }} --config Debug --
+          CODE_SIGNING_ALLOWED=NO
+          IPHONEOS_DEPLOYMENT_TARGET=15.0
+      - name: Upload build products and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: minecraft-client-ios-host-${{ matrix.sdk }}
+          path: |
+            build-ios-${{ matrix.sdk }}/Debug-*/MinecraftClientIOSHost.app
+            build-ios-${{ matrix.sdk }}/**/*.log
+            build-ios-${{ matrix.sdk }}/**/*.xcresult
+          if-no-files-found: warn
